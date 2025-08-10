@@ -171,6 +171,37 @@ def get_user_input():
         print("URL cannot be empty. Please enter a valid URL:")
         m3u8_url = input("M3U8 URL: ").strip()
 
+    # Erstelle eine temporäre Session und lade die Playlist um Auflösungen zu ermitteln
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0",
+        "Origin": "https://player.videasy.net",
+        "Referer": "https://player.videasy.net/"
+    })
+
+    print("\nFetching available video qualities...")
+    master_content = download_text(session, m3u8_url)
+
+    selected_playlist_url = m3u8_url  # default fallback
+
+    if is_master_playlist(master_content):
+        playlists = list_playlists(master_content, m3u8_url)
+        if not playlists:
+            print("[!] No playlists found in master playlist, using original URL.")
+        else:
+            print("\nAvailable video resolutions:")
+            for i, (res, _) in enumerate(playlists, 1):
+                print(f"  {i}. {res}")
+            while True:
+                choice = input(f"Select resolution [1-{len(playlists)}]: ").strip()
+                if choice.isdigit() and 1 <= int(choice) <= len(playlists):
+                    chosen_index = int(choice)
+                    selected_playlist_url = playlists[chosen_index - 1][1]
+                    break
+                print("Invalid input, please enter a valid number.")
+    else:
+        print("[+] No master playlist detected, using the provided URL.")
+
     print("\nEnter desired output filename (e.g. myvideo.mp4). If no extension is given, '.mp4' will be added:")
     output_file = input("Output filename: ").strip()
     if not output_file:
@@ -178,7 +209,7 @@ def get_user_input():
     elif '.' not in output_file:
         output_file += ".mp4"
 
-    return m3u8_url, output_file
+    return selected_playlist_url, output_file
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
